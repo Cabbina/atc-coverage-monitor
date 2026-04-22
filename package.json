@@ -1,0 +1,12 @@
+{
+  "name": "atc-coverage-poc",
+  "version": "0.1.0",
+  "description": "POC: fetch VATSIM + IVAO, normalizza, serve dashboard locale",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "fetch": "node src/fetch-once.js",
+    "server": "node src/server.js"
+  },
+  "dependencies": {}
+}
