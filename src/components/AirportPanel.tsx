@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { X } from 'lucide-react';
+import PredictorSection from './PredictorSection';
 
 interface AirportPanelProps {
   icao: string | null;
@@ -211,6 +212,12 @@ export function AirportPanel({ icao, positions, onClose, onShowStats }: AirportP
             )}
           </div>
         </ScrollArea>
+
+        <Separator />
+
+        <div className="px-6">
+          <PredictorSection icao={icao} />
+        </div>
 
         <Separator />
 
