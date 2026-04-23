@@ -11,27 +11,16 @@ import {
 
 import React from 'react';
 import { ATCPosition } from '@/lib/types';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
+import { X } from 'lucide-react';
 
 interface AirportPanelProps {
   icao: string | null;
   positions: ATCPosition[];
   onClose: () => void;
+  onShowStats?: (icao: string) => void;
 }
 
 const POSITION_COLORS: Record<string, string> = {
@@ -56,8 +45,27 @@ const POSITION_LABELS: Record<string, string> = {
   ATIS: 'ATIS',
 };
 
-export function AirportPanel({ icao, positions, onClose }: AirportPanelProps) {
-  if (!icao) return null;
+function ATISAccordion({ atis, atisCode }: { atis: string | string[] | null | undefined, atisCode?: string }) {
+  const [open, setOpen] = React.useState(false)
+  return (
+    <div className="w-full">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="py-1 text-xs font-bold text-muted-foreground w-full text-left flex items-center gap-1"
+      >
+        <span className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
+        VIEW ATIS {atisCode ? `[${atisCode}]` : ''}
+      </button>
+      {open && (
+        <div className="p-3 rounded-lg bg-muted/50 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap border border-border/50">
+          {Array.isArray(atis) ? atis.join(' \n') : atis}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function AirportPanel({ icao, positions, onClose, onShowStats }: AirportPanelProps) {
   const { data: session } = useSession();
   const [alerts, setAlerts] = useState<any[]>([]);
   const [network, setNetwork] = useState('ANY');
@@ -106,37 +114,67 @@ export function AirportPanel({ icao, positions, onClose }: AirportPanelProps) {
   };
 
   return (
-    <Sheet open={!!icao} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="sm:max-w-md w-full p-0 flex flex-col gap-0 border-l border-border/50 bg-background shadow-2xl">
-        <SheetHeader className="p-6 pb-4">
-          <div className="flex items-center justify-between gap-4">
-            <SheetTitle className="text-4xl font-bold tracking-tighter">
-              {icao}
-            </SheetTitle>
-            <div className="flex gap-1">
-              {vatsimPositions.length > 0 && (
-                <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">
-                  VATSIM
-                </Badge>
-              )}
-              {ivaoPositions.length > 0 && (
-                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
-                  IVAO
-                </Badge>
-              )}
+    <div className={`fixed inset-0 z-50 transition-all duration-300 ${icao ? 'visible' : 'invisible pointer-events-none'}`}>
+      {/* Backdrop */}
+      <div 
+        className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${icao ? 'opacity-100' : 'opacity-0'}`}
+        onClick={onClose}
+      />
+      
+      {/* Panel */}
+      <div className={`absolute right-0 top-0 h-full w-full sm:max-w-md bg-background border-l border-border/50 shadow-2xl transition-transform duration-300 ease-in-out transform flex flex-col ${icao ? 'translate-x-0' : 'translate-x-full'}`}>
+        {/* Header */}
+        <div className="p-6 pb-4 flex flex-col gap-4 relative">
+          <button 
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          <div className="flex items-center justify-between gap-4 mr-8">
+            <div className="flex flex-col">
+              <h2 className="text-4xl font-bold tracking-tighter leading-tight">
+                {icao}
+              </h2>
+              <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest">
+                Airport ATC Coverage
+              </p>
+            </div>
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex gap-1">
+                {vatsimPositions.length > 0 && (
+                  <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">
+                    VATSIM
+                  </Badge>
+                )}
+                {ivaoPositions.length > 0 && (
+                  <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
+                    IVAO
+                  </Badge>
+                )}
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-[10px] font-bold uppercase tracking-wider bg-primary/5 hover:bg-primary/10 border-primary/20"
+                onClick={() => {
+                  console.log('[Stats] onShowStats called with:', icao);
+                  icao && onShowStats?.(icao);
+                }}
+              >
+                View Statistics
+              </Button>
             </div>
           </div>
-          <SheetDescription className="text-sm font-medium text-muted-foreground uppercase tracking-widest">
-            Airport ATC Coverage
-          </SheetDescription>
-        </SheetHeader>
+        </div>
 
         <Separator />
 
         <ScrollArea className="flex-1 px-6">
           <div className="py-6 flex flex-col gap-6">
             {positions.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground italic">
+              <div className="text-center py-12 text-muted-foreground italic text-sm">
                 No active ATC coverage at the moment.
               </div>
             ) : (
@@ -165,16 +203,7 @@ export function AirportPanel({ icao, positions, onClose }: AirportPanelProps) {
                     </div>
 
                     {p.atis && (
-                      <Accordion type="single" collapsible className="w-full border-none">
-                        <AccordionItem value="atis" className="border-none">
-                          <AccordionTrigger className="py-1 text-xs font-bold text-muted-foreground hover:no-underline">
-                            VIEW ATIS {p.atisCode ? `[${p.atisCode}]` : ''}
-                          </AccordionTrigger>
-                          <AccordionContent className="p-3 rounded-lg bg-muted/50 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap border border-border/50">
-                            {Array.isArray(p.atis) ? p.atis.join(' \n') : p.atis}
-                          </AccordionContent>
-                        </AccordionItem>
-                      </Accordion>
+                      <ATISAccordion atis={p.atis} atisCode={p.atisCode} />
                     )}
                     <Separator className="mt-2 opacity-50" />
                   </div>
@@ -182,10 +211,12 @@ export function AirportPanel({ icao, positions, onClose }: AirportPanelProps) {
             )}
           </div>
         </ScrollArea>
+
         <Separator />
+
         <div className="p-6 flex flex-col gap-4">
           {!session ? (
-            <a href="/login" className="text-sm text-blue-400 underline text-center">
+            <a href="/login" className="text-sm text-blue-400 underline text-center hover:text-blue-300 transition-colors">
               Accedi per attivare gli alert
             </a>
           ) : (
@@ -197,13 +228,13 @@ export function AirportPanel({ icao, positions, onClose }: AirportPanelProps) {
               {alerts.length > 0 && (
                 <div className="flex flex-col gap-2">
                   {alerts.map(a => (
-                    <div key={a.id} className="flex items-center justify-between text-xs bg-muted/50 rounded-lg px-3 py-2">
+                    <div key={a.id} className="flex items-center justify-between text-xs bg-muted/50 rounded-lg px-3 py-2 border border-border/30">
                       <span className="font-mono">
                         {a.network} · {a.position_type} · {a.trigger}
                       </span>
                       <button
                         onClick={() => deleteAlert(a.id)}
-                        className="text-red-400 hover:text-red-300 ml-2"
+                        className="text-red-400 hover:text-red-300 ml-2 transition-colors"
                       >
                         ✕
                       </button>
@@ -253,7 +284,7 @@ export function AirportPanel({ icao, positions, onClose }: AirportPanelProps) {
                   size="sm"
                   onClick={createAlert}
                   disabled={saving}
-                  className="w-full h-8 text-xs"
+                  className="w-full h-8 text-xs mt-1"
                 >
                   {saving ? 'Salvataggio...' : '+ Aggiungi alert'}
                 </Button>
@@ -261,7 +292,7 @@ export function AirportPanel({ icao, positions, onClose }: AirportPanelProps) {
             </>
           )}
         </div>
-      </SheetContent>
-    </Sheet>
+      </div>
+    </div>
   );
 }

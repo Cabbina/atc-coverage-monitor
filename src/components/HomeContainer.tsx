@@ -8,11 +8,13 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { PlaneTakeoff } from 'lucide-react';
+import StatsModal from './StatsModal';
 
 export default function HomeContainer() {
   const [vatsimEnabled, setVatsimEnabled] = useState(true);
   const [ivaoEnabled, setIvaoEnabled] = useState(true);
   const [selectedAirport, setSelectedAirport] = useState<{ icao: string; positions: ATCPosition[] } | null>(null);
+  const [statsIcao, setStatsIcao] = useState<string | null>(null);
 
   const handleAirportClick = useCallback((icao: string, positions: ATCPosition[]) => {
     setSelectedAirport({ icao, positions });
@@ -105,6 +107,12 @@ export default function HomeContainer() {
         icao={selectedAirport?.icao || null} 
         positions={selectedAirport?.positions || []} 
         onClose={() => setSelectedAirport(null)} 
+        onShowStats={(icao) => setStatsIcao(icao)}
+      />
+
+      <StatsModal 
+        icao={statsIcao} 
+        onClose={() => setStatsIcao(null)} 
       />
     </div>
   );
