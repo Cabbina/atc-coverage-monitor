@@ -101,6 +101,11 @@ export default function HomeContainer() {
               <span className="text-[10px] font-bold">IVAO</span>
            </div>
         </div>
+        <footer className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 text-center">
+          <p className="text-[10px] text-gray-500 bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full border border-border/30">
+            Not affiliated with VATSIM or IVAO · Data sourced from public feeds · For flight simulation use only
+          </p>
+        </footer>
       </main>
 
       <AirportPanel 
