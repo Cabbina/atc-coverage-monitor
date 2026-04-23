@@ -1,4 +1,13 @@
-'use client';
+'use client'; import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 import React from 'react';
 import { ATCPosition } from '@/lib/types';
@@ -49,6 +58,37 @@ const POSITION_LABELS: Record<string, string> = {
 
 export function AirportPanel({ icao, positions, onClose }: AirportPanelProps) {
   if (!icao) return null;
+  const { data: session } = useSession();
+  const [alerts, setAlerts] = useState<any[]>([]);
+  const [network, setNetwork] = useState('ANY');
+  const [positionType, setPositionType] = useState('ANY');
+  const [trigger, setTrigger] = useState('both');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!icao || !session) return;
+    fetch('/api/alerts')
+      .then(r => r.json())
+      .then(data => setAlerts(data.filter((a: any) => a.icao === icao)))
+      .catch(() => { })
+  }, [icao, session]);
+
+  const createAlert = async () => {
+    setSaving(true);
+    await fetch('/api/alerts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ icao, network, position_type: positionType, trigger }),
+    });
+    const data = await fetch('/api/alerts').then(r => r.json());
+    setAlerts(data.filter((a: any) => a.icao === icao));
+    setSaving(false);
+  };
+
+  const deleteAlert = async (id: number) => {
+    await fetch(`/api/alerts/${id}`, { method: 'DELETE' });
+    setAlerts(prev => prev.filter(a => a.id !== id));
+  };
 
   const vatsimPositions = positions.filter((p) => p.network === 'VATSIM');
   const ivaoPositions = positions.filter((p) => p.network === 'IVAO');
@@ -107,9 +147,8 @@ export function AirportPanel({ icao, positions, onClose }: AirportPanelProps) {
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex flex-col gap-1">
                         <Badge
-                          className={`w-fit font-bold ${
-                            POSITION_COLORS[p.positionType] || 'bg-secondary'
-                          }`}
+                          className={`w-fit font-bold ${POSITION_COLORS[p.positionType] || 'bg-secondary'
+                            }`}
                         >
                           {POSITION_LABELS[p.positionType] || p.positionType}
                         </Badge>
@@ -143,6 +182,85 @@ export function AirportPanel({ icao, positions, onClose }: AirportPanelProps) {
             )}
           </div>
         </ScrollArea>
+        <Separator />
+        <div className="p-6 flex flex-col gap-4">
+          {!session ? (
+            <a href="/login" className="text-sm text-blue-400 underline text-center">
+              Accedi per attivare gli alert
+            </a>
+          ) : (
+            <>
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                Alert per {icao}
+              </p>
+
+              {alerts.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  {alerts.map(a => (
+                    <div key={a.id} className="flex items-center justify-between text-xs bg-muted/50 rounded-lg px-3 py-2">
+                      <span className="font-mono">
+                        {a.network} · {a.position_type} · {a.trigger}
+                      </span>
+                      <button
+                        onClick={() => deleteAlert(a.id)}
+                        className="text-red-400 hover:text-red-300 ml-2"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-2">
+                <Select value={network} onValueChange={setNetwork}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Network" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ANY">Any network</SelectItem>
+                    <SelectItem value="VATSIM">VATSIM</SelectItem>
+                    <SelectItem value="IVAO">IVAO</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={positionType} onValueChange={setPositionType}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Position" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ANY">Any position</SelectItem>
+                    <SelectItem value="DEL">Delivery</SelectItem>
+                    <SelectItem value="GND">Ground</SelectItem>
+                    <SelectItem value="TWR">Tower</SelectItem>
+                    <SelectItem value="APP">Approach</SelectItem>
+                    <SelectItem value="CTR">Center</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={trigger} onValueChange={setTrigger}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Trigger" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="both">Online + Offline</SelectItem>
+                    <SelectItem value="online">Solo Online</SelectItem>
+                    <SelectItem value="offline">Solo Offline</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Button
+                  size="sm"
+                  onClick={createAlert}
+                  disabled={saving}
+                  className="w-full h-8 text-xs"
+                >
+                  {saving ? 'Salvataggio...' : '+ Aggiungi alert'}
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
       </SheetContent>
     </Sheet>
   );

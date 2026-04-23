@@ -2,38 +2,45 @@ import { auth } from '@/auth'
 import sql from '@/lib/db'
 import { NextResponse } from 'next/server'
 
-// DELETE /api/alerts/:id
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+export async function GET() {
     const session = await auth()
     if (!session?.user?.id) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    await sql`
-    DELETE FROM alerts
-    WHERE id = ${params.id}
-      AND user_id = ${session.user.id}
+    const alerts = await sql`
+    SELECT * FROM alerts
+    WHERE user_id = ${session.user.id}
+    ORDER BY created_at DESC
   `
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json(alerts)
 }
 
-// PATCH /api/alerts/:id — toggle enabled
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request) {
     const session = await auth()
     if (!session?.user?.id) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { enabled } = await req.json()
+    const body = await req.json()
+    const { icao, network = 'ANY', position_type = 'ANY', trigger = 'both' } = body
+
+    if (!icao) {
+        return NextResponse.json({ error: 'icao is required' }, { status: 400 })
+    }
 
     const [alert] = await sql`
-    UPDATE alerts
-    SET enabled = ${enabled}
-    WHERE id = ${params.id}
-      AND user_id = ${session.user.id}
+    INSERT INTO alerts (user_id, icao, network, position_type, trigger)
+    VALUES (
+      ${session.user.id},
+      ${icao.toUpperCase()},
+      ${network},
+      ${position_type},
+      ${trigger}
+    )
     RETURNING *
   `
 
-    return NextResponse.json(alert)
+    return NextResponse.json(alert, { status: 201 })
 }
