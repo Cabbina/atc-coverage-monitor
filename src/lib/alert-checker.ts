@@ -1,17 +1,22 @@
 import sql from './db'
+import { sendAlertEmail } from './notify'
 import type { ATCPosition } from './types'
 
 type CallsignSet = Set<string>
 
 let previousCallsigns: CallsignSet = new Set()
+let initialized = false
 
 export async function checkAlerts(current: ATCPosition[]): Promise<void> {
     const currentCallsigns = new Set(current.map(p => p.callsign))
 
-    // Posizioni andate online
-    const wentOnline = current.filter(p => !previousCallsigns.has(p.callsign))
+    if (!initialized) {
+        previousCallsigns = currentCallsigns
+        initialized = true
+        return
+    }
 
-    // Posizioni andate offline
+    const wentOnline = current.filter(p => !previousCallsigns.has(p.callsign))
     const wentOffline = [...previousCallsigns].filter(cs => !currentCallsigns.has(cs))
 
     if (wentOnline.length === 0 && wentOffline.length === 0) {
@@ -19,7 +24,6 @@ export async function checkAlerts(current: ATCPosition[]): Promise<void> {
         return
     }
 
-    // Carica tutti gli alert attivi rilevanti
     const icaosOnline = [...new Set(wentOnline.map(p => p.icao))]
     const icaosOffline = [...new Set(wentOffline.map(cs => cs.split('_')[0]))]
     const allIcaos = [...new Set([...icaosOnline, ...icaosOffline])]
@@ -38,7 +42,6 @@ export async function checkAlerts(current: ATCPosition[]): Promise<void> {
   `
 
     for (const alert of alerts) {
-        // Controlla went online
         if (alert.trigger === 'online' || alert.trigger === 'both') {
             for (const pos of wentOnline) {
                 if (pos.icao !== alert.icao) continue
@@ -46,18 +49,41 @@ export async function checkAlerts(current: ATCPosition[]): Promise<void> {
                 if (alert.position_type !== 'ANY' && pos.positionType !== alert.position_type) continue
 
                 console.log(`[Alert] ONLINE: ${pos.callsign} → ${alert.email}`)
-                // TODO: invia notifica
+                try {
+                    await sendAlertEmail({
+                        to: alert.email,
+                        icao: pos.icao,
+                        callsign: pos.callsign,
+                        positionType: pos.positionType,
+                        network: pos.network,
+                        event: 'online',
+                    })
+                    await new Promise(r => setTimeout(r, 500))
+                } catch (e) {
+                    console.error('[Alert] Email error:', e)
+                }
             }
         }
 
-        // Controlla went offline
         if (alert.trigger === 'offline' || alert.trigger === 'both') {
             for (const cs of wentOffline) {
                 const icao = cs.split('_')[0]
                 if (icao !== alert.icao) continue
 
                 console.log(`[Alert] OFFLINE: ${cs} → ${alert.email}`)
-                // TODO: invia notifica
+                try {
+                    await sendAlertEmail({
+                        to: alert.email,
+                        icao,
+                        callsign: cs,
+                        positionType: alert.position_type,
+                        network: alert.network,
+                        event: 'offline',
+                    })
+                    await new Promise(r => setTimeout(r, 500))
+                } catch (e) {
+                    console.error('[Alert] Email error:', e)
+                }
             }
         }
     }
