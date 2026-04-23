@@ -251,7 +251,7 @@ export function AirportPanel({ icao, positions, onClose, onShowStats }: AirportP
               )}
 
               <div className="flex flex-col gap-2">
-                <Select value={network} onValueChange={setNetwork}>
+                <Select value={network} onValueChange={(val) => val && setNetwork(val)}>
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue placeholder="Network" />
                   </SelectTrigger>
@@ -262,7 +262,7 @@ export function AirportPanel({ icao, positions, onClose, onShowStats }: AirportP
                   </SelectContent>
                 </Select>
 
-                <Select value={positionType} onValueChange={setPositionType}>
+                <Select value={positionType} onValueChange={(val) => val && setPositionType(val)}>
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue placeholder="Position" />
                   </SelectTrigger>
@@ -276,7 +276,7 @@ export function AirportPanel({ icao, positions, onClose, onShowStats }: AirportP
                   </SelectContent>
                 </Select>
 
-                <Select value={trigger} onValueChange={setTrigger}>
+                <Select value={trigger} onValueChange={(val) => val && setTrigger(val)}>
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue placeholder="Trigger" />
                   </SelectTrigger>

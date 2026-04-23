@@ -91,7 +91,7 @@ export default function PredictorSection({ icao }: PredictorSectionProps) {
 
       <div className="flex flex-col gap-2">
         <div className="grid grid-cols-2 gap-2">
-          <Select value={day} onValueChange={setDay}>
+          <Select value={day} onValueChange={(val) => val && setDay(val)}>
             <SelectTrigger className="h-8 text-xs font-medium">
               <SelectValue placeholder="Day" />
             </SelectTrigger>
@@ -104,7 +104,7 @@ export default function PredictorSection({ icao }: PredictorSectionProps) {
             </SelectContent>
           </Select>
 
-          <Select value={hour} onValueChange={setHour}>
+          <Select value={hour} onValueChange={(val) => val && setHour(val)}>
             <SelectTrigger className="h-8 text-xs font-mono font-medium">
               <SelectValue placeholder="Hour" />
             </SelectTrigger>
