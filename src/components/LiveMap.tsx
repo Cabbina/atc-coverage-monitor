@@ -22,11 +22,11 @@ interface LiveMapProps {
 export function LiveMap({ onAirportClick, vatsimEnabled, ivaoEnabled }: LiveMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
-  
+
   // Refs to avoid stale closures in map event handlers
   const onAirportClickRef = useRef(onAirportClick);
   const dataRef = useRef<ATCPosition[]>([]);
-  
+
   const [data, setData] = useState<ATCPosition[]>([]);
   const [airports, setAirports] = useState<Record<string, AirportInfo>>({});
   const [isUpdating, setIsUpdating] = useState(false);
@@ -49,7 +49,7 @@ export function LiveMap({ onAirportClick, vatsimEnabled, ivaoEnabled }: LiveMapP
 
     const m = new maplibregl.Map({
       container: mapContainer.current,
-      style: 'https://demotiles.maplibre.org/style.json',
+      style: "https://tiles.openfreemap.org/styles/liberty",
       center: [10, 45],
       zoom: 3,
       attributionControl: false,
@@ -86,7 +86,7 @@ export function LiveMap({ onAirportClick, vatsimEnabled, ivaoEnabled }: LiveMapP
       m.on('click', 'airport-circles', (e) => {
         const feature = e.features?.[0];
         if (!feature) return;
-        
+
         const icao = feature.properties?.icao;
         const positions = dataRef.current.filter(p => p.icao === icao);
         onAirportClickRef.current(icao, positions);
@@ -148,14 +148,14 @@ export function LiveMap({ onAirportClick, vatsimEnabled, ivaoEnabled }: LiveMapP
   useEffect(() => {
     if (!map.current || !map.current.isStyleLoaded() || !map.current.getSource('airports')) return;
 
-    const filteredPositions = data.filter(p => 
-      (p.network === 'VATSIM' && vatsimEnabled) || 
+    const filteredPositions = data.filter(p =>
+      (p.network === 'VATSIM' && vatsimEnabled) ||
       (p.network === 'IVAO' && ivaoEnabled)
     );
 
     // Group by ICAO
     const groups: Record<string, { icao: string, lat: number, lon: number, status: string, networks: string[] }> = {};
-    
+
     filteredPositions.forEach(pos => {
       if (!groups[pos.icao]) {
         const airport = airports[pos.icao];
@@ -192,7 +192,7 @@ export function LiveMap({ onAirportClick, vatsimEnabled, ivaoEnabled }: LiveMapP
     const features = Object.values(groups).map(g => {
       const color = g.status === 'active' ? '#1D9E75' : '#EF9F27';
       const bothNets = g.networks.length > 1;
-      
+
       return {
         type: 'Feature',
         properties: {
@@ -218,14 +218,14 @@ export function LiveMap({ onAirportClick, vatsimEnabled, ivaoEnabled }: LiveMapP
   return (
     <div className="relative w-full h-full bg-background">
       <div ref={mapContainer} className="w-full h-full" />
-      
+
       {/* Loading Indicator */}
       {isUpdating && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 px-3 py-1 bg-background text-[10px] font-bold tracking-tighter uppercase rounded-lg border border-border/50 shadow-sm animate-pulse z-10">
           Updating Live Data...
         </div>
       )}
-      
+
       {/* Last Update Overlay */}
       <div className="absolute bottom-4 right-4 px-2 py-1 bg-background text-[9px] text-muted-foreground font-mono rounded-lg border border-border/50 pointer-events-none z-10">
         LAST SYNC: {lastUpdate?.toLocaleTimeString() || 'WAITING...'}
