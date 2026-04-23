@@ -1,4 +1,5 @@
 import { upsertOpenSessions, closeStaleSessions } from './session'
+import { checkAlerts } from './alert-checker'
 import { fetchAll } from './fetcher';
 import { normalizeVATSIM, normalizeIVAO } from './normalizer';
 import { ATCPosition } from './types';
@@ -94,6 +95,12 @@ export class PollerService {
 
       if (vatsim || ivao) {
         this.positions = [...vNorm, ...iNorm];
+        // Alert checker
+        try {
+          await checkAlerts(this.positions)
+        } catch (alertErr) {
+          console.error('[Poller] Alert checker error (non-fatal):', alertErr)
+        }
         this.lastFetchTime = new Date().toISOString();
 
         // ── DB persistence ──────────────────────────────
