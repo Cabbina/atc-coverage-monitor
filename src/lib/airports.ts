@@ -17,7 +17,7 @@ let isFetching = false;
  */
 export async function loadAirports(): Promise<Map<string, Airport>> {
   if (airportsCache) return airportsCache;
-  
+
   // Basic locking to prevent multiple parallel fetches
   if (isFetching) {
     while (isFetching) {
@@ -30,12 +30,12 @@ export async function loadAirports(): Promise<Map<string, Airport>> {
   try {
     console.log('[Airports] Fetching OurAirports dataset...');
     const startTime = Date.now();
-    
+
     const response = await fetch('https://davidmegginson.github.io/ourairports-data/airports.csv');
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    
+
     const csv = await response.text();
-    
+
     const { data } = Papa.parse(csv, {
       header: true,
       skipEmptyLines: true,
@@ -45,8 +45,8 @@ export async function loadAirports(): Promise<Map<string, Airport>> {
     const map = new Map<string, Airport>();
     for (const row of data as any[]) {
       // We prioritize gps_code as it's the 4-letter ICAO code used in ATC networks
-      const icao = (row.gps_code || row.ident)?.toUpperCase();
-      
+      const icao = (row.gps_code || row.ident)?.toString().toUpperCase();
+
       if (icao && row.latitude_deg !== undefined && row.longitude_deg !== undefined) {
         map.set(icao, {
           icao,

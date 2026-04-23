@@ -1,3 +1,4 @@
+import { upsertOpenSessions, closeStaleSessions } from './session'
 import { fetchAll } from './fetcher';
 import { normalizeVATSIM, normalizeIVAO } from './normalizer';
 import { ATCPosition } from './types';
@@ -11,12 +12,12 @@ export class PollerService {
   private timer: NodeJS.Timeout | null = null;
   private positions: ATCPosition[] = [];
   private startTime: Date | null = null;
-  
+
   public lastFetchTime: string | null = null;
   public fetchErrors: { vatsim: string | null; ivao: string | null } = { vatsim: null, ivao: null };
   public isRunning: boolean = false;
 
-  constructor() {}
+  constructor() { }
 
   /**
    * Start the polling loop
@@ -25,12 +26,12 @@ export class PollerService {
     if (this.isRunning) return;
     this.isRunning = true;
     this.startTime = new Date();
-    
+
     console.log('[Poller] Starting service...');
-    
+
     // Initial fetch
     await this.poll();
-    
+
     // Setup interval
     this.scheduleNext();
   }
@@ -64,8 +65,8 @@ export class PollerService {
    * Get service status and metrics
    */
   public getStatus() {
-    const uptime = this.startTime 
-      ? Math.floor((Date.now() - this.startTime.getTime()) / 1000) 
+    const uptime = this.startTime
+      ? Math.floor((Date.now() - this.startTime.getTime()) / 1000)
       : 0;
 
     return {
@@ -85,29 +86,45 @@ export class PollerService {
     const start = Date.now();
     try {
       const { vatsim, ivao, errors } = await fetchAll();
-      
+
       this.fetchErrors = errors;
-      
+
       const vNorm = vatsim ? normalizeVATSIM(vatsim).positions : [];
       const iNorm = ivao ? normalizeIVAO(ivao).positions : [];
-      
-      // Update snapshot (merging VATSIM and IVAO)
-      // If both fetch failed, we keep the previous snapshot (positions)
+
       if (vatsim || ivao) {
         this.positions = [...vNorm, ...iNorm];
         this.lastFetchTime = new Date().toISOString();
+
+        // ── DB persistence ──────────────────────────────
+        // ── DB persistence ──────────────────────────────
+        try {
+          await upsertOpenSessions(this.positions)
+
+          if (vatsim) {
+            const vCallsigns = vNorm.map(p => p.callsign)
+            await closeStaleSessions(vCallsigns, 'VATSIM')
+          }
+          if (ivao) {
+            const iCallsigns = iNorm.map(p => p.callsign)
+            await closeStaleSessions(iCallsigns, 'IVAO')
+          }
+        } catch (dbErr) {
+          console.error('[Poller] DB error (non-fatal):', dbErr)
+        }
+        // ─────────────────────────────────────────────────
+
+        const elapsed = Date.now() - start;
+        const vStatus = errors.vatsim ? 'ERR' : (vatsim ? 'OK' : 'NODATA');
+        const iStatus = errors.ivao ? 'ERR' : (ivao ? 'OK' : 'NODATA');
+
+        console.log(
+          `[Poller] ${new Date().toISOString().slice(11, 19)} | ` +
+          `VATSIM:${vStatus} IVAO:${iStatus} | ` +
+          `Positions: ${this.positions.length} | ` +
+          `Fetch: ${elapsed}ms`
+        );
       }
-      
-      const elapsed = Date.now() - start;
-      const vStatus = errors.vatsim ? 'ERR' : (vatsim ? 'OK' : 'NODATA');
-      const iStatus = errors.ivao ? 'ERR' : (ivao ? 'OK' : 'NODATA');
-      
-      console.log(
-        `[Poller] ${new Date().toISOString().slice(11, 19)} | ` +
-        `VATSIM:${vStatus} IVAO:${iStatus} | ` +
-        `Positions: ${this.positions.length} | ` +
-        `Fetch: ${elapsed}ms`
-      );
     } catch (err) {
       console.error('[Poller] Unexpected error in polling cycle:', err);
     }
@@ -118,10 +135,10 @@ export class PollerService {
    */
   private scheduleNext() {
     if (!this.isRunning) return;
-    
+
     const interval = 15000;
     const jitter = Math.random() * 2000;
-    
+
     this.timer = setTimeout(async () => {
       await this.poll();
       this.scheduleNext();
