@@ -23,7 +23,7 @@ export function middleware(request: NextRequest) {
   return new NextResponse('Authentication required', {
     status: 401,
     headers: {
-      'WWW-Authenticate': 'Basic realm="ATC Monitor — Private Beta"',
+      'WWW-Authenticate': 'Basic realm="ATC Monitor - Private Beta"',
     },
   })
 }
