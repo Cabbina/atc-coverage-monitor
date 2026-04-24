@@ -117,7 +117,7 @@ export default function HomeContainer() {
         />
 
         {/* Mobile network filter pill */}
-        <div className="md:hidden absolute bottom-6 left-1/2 -translate-x-1/2 bg-background/90 backdrop-blur-sm border border-border/50 rounded-full px-4 py-2 shadow-2xl flex items-center gap-4 z-10">
+        <div className="md:hidden absolute bottom-10 left-1/2 -translate-x-1/2 bg-background/90 backdrop-blur-sm border border-border/50 rounded-full px-4 py-2 shadow-2xl flex items-center gap-4 z-10">
           <div className="flex items-center gap-1.5 border-r border-border/50 pr-4">
             <Switch checked={vatsimEnabled} onCheckedChange={setVatsimEnabled} />
             <span className="text-[10px] font-bold">VATSIM</span>
@@ -128,7 +128,7 @@ export default function HomeContainer() {
           </div>
         </div>
 
-        <footer className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
+        <footer className="hidden md:block absolute bottom-2 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
           <p className="text-[10px] text-gray-500 bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full border border-border/30 whitespace-nowrap">
             Not affiliated with VATSIM or IVAO · Data sourced from public feeds · For flight simulation use only
           </p>

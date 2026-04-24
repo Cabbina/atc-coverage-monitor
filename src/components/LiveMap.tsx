@@ -411,7 +411,7 @@ export function LiveMap({ onAirportClick, onCountUpdate, vatsimEnabled, ivaoEnab
         </div>
       )}
 
-      <div className="absolute bottom-4 right-4 px-2 py-1 bg-background text-[9px] text-muted-foreground font-mono rounded-lg border border-border/50 pointer-events-none z-10">
+      <div className="hidden sm:block absolute bottom-4 right-4 px-2 py-1 bg-background text-[9px] text-muted-foreground font-mono rounded-lg border border-border/50 pointer-events-none z-10">
         LAST SYNC: {lastUpdate?.toLocaleTimeString() || 'WAITING...'}
       </div>
     </div>

@@ -61,7 +61,7 @@ export default function StatsModal({ icao, onClose }: StatsModalProps) {
     return (
       <div className="mt-4 flex flex-col gap-2">
         <div className="flex">
-          <div className="w-16 shrink-0" />
+          <div className="w-12 sm:w-16 shrink-0" />
           {hours.map(h => (
             <div key={h} className="flex-1 text-center text-[9px] text-muted-foreground font-mono">
               {h % 6 === 0 ? `${h}z` : ''}
@@ -73,7 +73,7 @@ export default function StatsModal({ icao, onClose }: StatsModalProps) {
           const covered = net === 'VATSIM' ? coveredVATSIM : coveredIVAO;
           return (
             <div key={net} className="flex items-center">
-              <div className={`w-16 text-[10px] font-mono shrink-0 ${net === 'VATSIM' ? 'text-blue-400' : 'text-emerald-400'}`}>
+              <div className={`w-12 sm:w-16 text-[10px] font-mono shrink-0 ${net === 'VATSIM' ? 'text-blue-400' : 'text-emerald-400'}`}>
                 {net}
               </div>
               {hours.map(h => (
@@ -169,16 +169,14 @@ export default function StatsModal({ icao, onClose }: StatsModalProps) {
       onClick={onClose}
     >
       <div
-        className={`relative mx-4 text-white shadow-2xl transition-all duration-300 transform flex flex-col gap-4 ${icao ? 'scale-100' : 'scale-95'}`}
+        className={`relative mx-4 p-4 sm:p-6 text-white shadow-2xl transition-all duration-300 transform flex flex-col gap-4 max-h-[95vh] sm:max-h-[90vh] ${icao ? 'scale-100' : 'scale-95'}`}
         style={{
           backgroundColor: '#030712',
           border: '1px solid #1f2937',
-          maxHeight: '90vh',
           overflowY: 'auto',
           width: '100%',
           maxWidth: '720px',
           borderRadius: '16px',
-          padding: '24px'
         }}
         onClick={e => e.stopPropagation()}
       >

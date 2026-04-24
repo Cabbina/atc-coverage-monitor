@@ -125,7 +125,7 @@ export function AirportPanel({ icao, positions, onClose, onShowStats }: AirportP
       {/* Panel */}
       <div className={`absolute right-0 top-0 h-full w-full sm:max-w-md bg-background border-l border-border/50 shadow-2xl transition-transform duration-300 ease-in-out transform flex flex-col ${icao ? 'translate-x-0' : 'translate-x-full'}`}>
         {/* Header */}
-        <div className="p-6 pb-4 flex flex-col gap-4 relative">
+        <div className="p-4 pb-3 sm:p-6 sm:pb-4 flex flex-col gap-4 relative">
           <button 
             onClick={onClose}
             className="absolute top-4 right-4 p-2 text-muted-foreground hover:text-foreground transition-colors"
@@ -172,7 +172,7 @@ export function AirportPanel({ icao, positions, onClose, onShowStats }: AirportP
 
         <Separator />
 
-        <ScrollArea className="flex-1 px-6">
+        <ScrollArea className="flex-1 px-4 sm:px-6">
           <div className="py-6 flex flex-col gap-6">
             {positions.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground italic text-sm">
@@ -215,13 +215,13 @@ export function AirportPanel({ icao, positions, onClose, onShowStats }: AirportP
 
         <Separator />
 
-        <div className="px-6">
+        <div className="px-4 sm:px-6">
           <PredictorSection icao={icao} />
         </div>
 
         <Separator />
 
-        <div className="p-6 flex flex-col gap-4">
+        <div className="p-4 sm:p-6 flex flex-col gap-4">
           {!session ? (
             <a href="/login" className="text-sm text-blue-400 underline text-center hover:text-blue-300 transition-colors">
               Accedi per attivare gli alert
