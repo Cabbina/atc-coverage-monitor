@@ -142,6 +142,25 @@ export function LiveMap({ onAirportClick, vatsimEnabled, ivaoEnabled }: LiveMapP
         }
       });
 
+      m.addLayer({
+        id: 'historical-labels',
+        type: 'symbol',
+        source: 'historical-airports',
+        minzoom: 8,
+        layout: {
+          'text-field': ['get', 'icao'],
+          'text-size': 9,
+          'text-offset': [0, 1.0],
+          'text-anchor': 'top',
+          'text-allow-overlap': false,
+        },
+        paint: {
+          'text-color': '#9ca3af',
+          'text-halo-color': '#000000',
+          'text-halo-width': 1,
+        }
+      });
+
       m.on('click', 'airport-diamonds', (e) => {
         const feature = e.features?.[0];
         if (!feature) return;
