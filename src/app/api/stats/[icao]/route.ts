@@ -6,17 +6,22 @@ export async function GET(
   { params }: { params: Promise<{ icao: string }> }
 ) {
   const { icao } = await params;
+  const positionType = request.nextUrl.searchParams.get('position_type') || 'ALL';
 
   try {
-    // 1. last24h: sessions in last 24h grouped by hour + network + position_type
+    const posFilter = positionType !== 'ALL'
+      ? sql`AND position_type = ${positionType}`
+      : sql``;
+
+    // Binary coverage: which hours in the last 24h had any session?
     const last24h = await sql`
-      SELECT date_trunc('hour', start_time) AS hour, network, position_type, COUNT(*) AS sessions
+      SELECT DISTINCT date_trunc('hour', start_time) AS hour, network
       FROM atc_sessions
-      WHERE icao = ${icao} AND start_time >= NOW() - INTERVAL '24 hours'
-      GROUP BY hour, network, position_type ORDER BY hour ASC
+      WHERE icao = ${icao}
+        AND start_time >= NOW() - INTERVAL '24 hours'
+        ${posFilter}
     `;
 
-    // 2. heatmap: historical coverage grouped by day_of_week (0=Sun) + hour_utc + network
     const heatmap = await sql`
       SELECT EXTRACT(DOW FROM start_time)::INTEGER AS day_of_week,
              EXTRACT(HOUR FROM start_time)::INTEGER AS hour_utc,
@@ -25,13 +30,11 @@ export async function GET(
              COUNT(DISTINCT DATE_TRUNC('week', start_time)) AS total_weeks
       FROM atc_sessions
       WHERE icao = ${icao} AND end_time IS NOT NULL
+        ${posFilter}
       GROUP BY day_of_week, hour_utc, network ORDER BY day_of_week, hour_utc
     `;
 
-    return NextResponse.json({
-      last24h,
-      heatmap
-    });
+    return NextResponse.json({ last24h, heatmap });
   } catch (error) {
     console.error('Error fetching stats:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
