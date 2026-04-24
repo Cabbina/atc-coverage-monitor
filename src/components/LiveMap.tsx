@@ -25,6 +25,22 @@ interface LiveMapProps {
   ivaoEnabled: boolean;
 }
 
+// Approximates a geographic circle as a GeoJSON polygon ring.
+// radiusNm in nautical miles (1nm ≈ 1/60 degree latitude).
+const createCircleCoords = (center: [number, number], radiusNm: number, steps = 64): number[][] => {
+  const radiusDeg = radiusNm / 60;
+  const lonCorrection = Math.cos((center[1] * Math.PI) / 180);
+  const coords: number[][] = [];
+  for (let i = 0; i <= steps; i++) {
+    const angle = (i / steps) * 2 * Math.PI;
+    coords.push([
+      center[0] + (radiusDeg / lonCorrection) * Math.sin(angle),
+      center[1] + radiusDeg * Math.cos(angle),
+    ]);
+  }
+  return coords;
+};
+
 const createDiamondImage = (color: string, size: number = 20) => {
   const canvas = document.createElement('canvas');
   canvas.width = size;
@@ -87,6 +103,11 @@ export function LiveMap({ onAirportClick, vatsimEnabled, ivaoEnabled }: LiveMapP
       m.addImage('diamond-amber', createDiamondImage('#f59e0b'));
       m.addImage('diamond-gray', createDiamondImage('#6b7280'));
 
+      m.addSource('coverage-areas', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      });
+
       m.addSource('historical-airports', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] }
@@ -95,6 +116,28 @@ export function LiveMap({ onAirportClick, vatsimEnabled, ivaoEnabled }: LiveMapP
       m.addSource('airports', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] }
+      });
+
+      // Coverage circles go below all markers
+      m.addLayer({
+        id: 'coverage-fill',
+        type: 'fill',
+        source: 'coverage-areas',
+        paint: {
+          'fill-color': '#22c55e',
+          'fill-opacity': 0.08,
+        }
+      });
+
+      m.addLayer({
+        id: 'coverage-line',
+        type: 'line',
+        source: 'coverage-areas',
+        paint: {
+          'line-color': '#22c55e',
+          'line-opacity': 0.4,
+          'line-width': 1,
+        }
       });
 
       m.addLayer({
@@ -292,6 +335,38 @@ export function LiveMap({ onAirportClick, vatsimEnabled, ivaoEnabled }: LiveMapP
       type: 'FeatureCollection',
       features: features as any
     });
+
+    // Coverage circles: one per ICAO with APP or DEP active
+    const seenCoverage = new Set<string>();
+    const coverageFeatures: any[] = [];
+
+    filteredPositions.forEach(pos => {
+      if (!['APP', 'DEP'].includes(pos.positionType)) return;
+      if (seenCoverage.has(pos.icao)) return;
+      seenCoverage.add(pos.icao);
+
+      const airport = airports[pos.icao];
+      const lat = airport?.lat ?? pos.latitude;
+      const lon = airport?.lon ?? pos.longitude;
+      if (lat === undefined || lon === undefined) return;
+
+      const radiusNm = pos.visualRange ?? 50;
+      coverageFeatures.push({
+        type: 'Feature',
+        properties: { icao: pos.icao },
+        geometry: {
+          type: 'Polygon',
+          coordinates: [createCircleCoords([lon, lat], radiusNm)],
+        },
+      });
+    });
+
+    if (map.current.getSource('coverage-areas')) {
+      (map.current.getSource('coverage-areas') as maplibregl.GeoJSONSource).setData({
+        type: 'FeatureCollection',
+        features: coverageFeatures,
+      });
+    }
   }, [data, airports, vatsimEnabled, ivaoEnabled]);
 
   // Update historical airports source
