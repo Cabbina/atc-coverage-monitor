@@ -21,6 +21,7 @@ interface HistoricalAirport {
 
 interface LiveMapProps {
   onAirportClick: (icao: string, positions: ATCPosition[]) => void;
+  onCountUpdate?: (count: number) => void;
   vatsimEnabled: boolean;
   ivaoEnabled: boolean;
 }
@@ -60,12 +61,16 @@ const createDiamondImage = (color: string, size: number = 20) => {
   return ctx.getImageData(0, 0, size, size);
 };
 
-export function LiveMap({ onAirportClick, vatsimEnabled, ivaoEnabled }: LiveMapProps) {
+export function LiveMap({ onAirportClick, onCountUpdate, vatsimEnabled, ivaoEnabled }: LiveMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
 
   const onAirportClickRef = useRef(onAirportClick);
+  const onCountUpdateRef = useRef(onCountUpdate);
   const dataRef = useRef<ATCPosition[]>([]);
+  const prevIcaosRef = useRef<Set<string>>(new Set());
+  const isFirstLoadRef = useRef(true);
+  const animFrameRef = useRef<number>(0);
 
   const [data, setData] = useState<ATCPosition[]>([]);
   const [airports, setAirports] = useState<Record<string, AirportInfo>>({});
@@ -73,13 +78,9 @@ export function LiveMap({ onAirportClick, vatsimEnabled, ivaoEnabled }: LiveMapP
   const [isUpdating, setIsUpdating] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
-  useEffect(() => {
-    onAirportClickRef.current = onAirportClick;
-  }, [onAirportClick]);
-
-  useEffect(() => {
-    dataRef.current = data;
-  }, [data]);
+  useEffect(() => { onAirportClickRef.current = onAirportClick; }, [onAirportClick]);
+  useEffect(() => { onCountUpdateRef.current = onCountUpdate; }, [onCountUpdate]);
+  useEffect(() => { dataRef.current = data; }, [data]);
 
   // Initialize Map
   useEffect(() => {
@@ -118,26 +119,24 @@ export function LiveMap({ onAirportClick, vatsimEnabled, ivaoEnabled }: LiveMapP
         data: { type: 'FeatureCollection', features: [] }
       });
 
-      // Coverage circles go below all markers
+      m.addSource('new-arrivals', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      });
+
+      // Coverage circles below all markers
       m.addLayer({
         id: 'coverage-fill',
         type: 'fill',
         source: 'coverage-areas',
-        paint: {
-          'fill-color': '#22c55e',
-          'fill-opacity': 0.08,
-        }
+        paint: { 'fill-color': '#22c55e', 'fill-opacity': 0.08 }
       });
 
       m.addLayer({
         id: 'coverage-line',
         type: 'line',
         source: 'coverage-areas',
-        paint: {
-          'line-color': '#22c55e',
-          'line-opacity': 0.4,
-          'line-width': 1,
-        }
+        paint: { 'line-color': '#22c55e', 'line-opacity': 0.4, 'line-width': 1 }
       });
 
       m.addLayer({
@@ -163,6 +162,20 @@ export function LiveMap({ onAirportClick, vatsimEnabled, ivaoEnabled }: LiveMapP
           ],
           'icon-size': 1,
           'icon-allow-overlap': true,
+        }
+      });
+
+      // Pulse ring for new arrivals — rendered above markers
+      m.addLayer({
+        id: 'new-arrivals-ring',
+        type: 'circle',
+        source: 'new-arrivals',
+        paint: {
+          'circle-radius': 8,
+          'circle-color': 'transparent',
+          'circle-stroke-color': '#22c55e',
+          'circle-stroke-width': 2,
+          'circle-opacity': 0,
         }
       });
 
@@ -215,58 +228,37 @@ export function LiveMap({ onAirportClick, vatsimEnabled, ivaoEnabled }: LiveMapP
       m.on('click', 'historical-diamonds', (e) => {
         const feature = e.features?.[0];
         if (!feature) return;
-        const icao = feature.properties?.icao;
-        onAirportClickRef.current(icao, []);
+        onAirportClickRef.current(feature.properties?.icao, []);
       });
 
-      m.on('mouseenter', 'airport-diamonds', () => {
-        m.getCanvas().style.cursor = 'pointer';
-      });
-      m.on('mouseleave', 'airport-diamonds', () => {
-        m.getCanvas().style.cursor = '';
-      });
-
-      m.on('mouseenter', 'historical-diamonds', () => {
-        m.getCanvas().style.cursor = 'pointer';
-      });
-      m.on('mouseleave', 'historical-diamonds', () => {
-        m.getCanvas().style.cursor = '';
-      });
+      m.on('mouseenter', 'airport-diamonds', () => { m.getCanvas().style.cursor = 'pointer'; });
+      m.on('mouseleave', 'airport-diamonds', () => { m.getCanvas().style.cursor = ''; });
+      m.on('mouseenter', 'historical-diamonds', () => { m.getCanvas().style.cursor = 'pointer'; });
+      m.on('mouseleave', 'historical-diamonds', () => { m.getCanvas().style.cursor = ''; });
     });
 
     map.current = m;
 
     return () => {
+      cancelAnimationFrame(animFrameRef.current);
       m.remove();
     };
   }, []);
 
   // Fetch airport metadata once
   useEffect(() => {
-    const fetchAirports = async () => {
-      try {
-        const res = await fetch('/api/airports');
-        const json = await res.json();
-        setAirports(json);
-      } catch (err) {
-        console.error('[LiveMap] Failed to load airports:', err);
-      }
-    };
-    fetchAirports();
+    fetch('/api/airports')
+      .then(r => r.json())
+      .then(json => setAirports(json))
+      .catch(err => console.error('[LiveMap] Failed to load airports:', err));
   }, []);
 
   // Fetch historical airports once
   useEffect(() => {
-    const fetchHistorical = async () => {
-      try {
-        const res = await fetch('/api/airports/historical');
-        const json = await res.json();
-        setHistoricalAirports(json.airports || []);
-      } catch (err) {
-        console.error('[LiveMap] Failed to load historical airports:', err);
-      }
-    };
-    fetchHistorical();
+    fetch('/api/airports/historical')
+      .then(r => r.json())
+      .then(json => setHistoricalAirports(json.airports || []))
+      .catch(err => console.error('[LiveMap] Failed to load historical airports:', err));
   }, []);
 
   // Polling Logic
@@ -285,13 +277,12 @@ export function LiveMap({ onAirportClick, vatsimEnabled, ivaoEnabled }: LiveMapP
   }, []);
 
   useEffect(() => {
-    const poll = () => fetchData();
-    poll();
-    const interval = setInterval(poll, 15000);
+    fetchData();
+    const interval = setInterval(fetchData, 15000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  // Update active airports source
+  // Update active airports + coverage areas sources
   useEffect(() => {
     if (!map.current || !map.current.isStyleLoaded() || !map.current.getSource('airports')) return;
 
@@ -300,6 +291,8 @@ export function LiveMap({ onAirportClick, vatsimEnabled, ivaoEnabled }: LiveMapP
       (p.network === 'IVAO' && ivaoEnabled)
     );
 
+    onCountUpdateRef.current?.(filteredPositions.length);
+
     const groups: Record<string, { icao: string, lat: number, lon: number, hasHighCoverage: boolean }> = {};
 
     filteredPositions.forEach(pos => {
@@ -307,21 +300,16 @@ export function LiveMap({ onAirportClick, vatsimEnabled, ivaoEnabled }: LiveMapP
         const airport = airports[pos.icao];
         let lat = airport?.lat;
         let lon = airport?.lon;
-
         if ((lat === undefined || lon === undefined) && pos.latitude && pos.longitude) {
           lat = pos.latitude;
           lon = pos.longitude;
         }
-
         if (lat !== undefined && lon !== undefined) {
           groups[pos.icao] = { icao: pos.icao, lat, lon, hasHighCoverage: false };
         }
       }
-
-      if (groups[pos.icao]) {
-        if (['TWR', 'APP', 'CTR', 'FSS'].includes(pos.positionType)) {
-          groups[pos.icao].hasHighCoverage = true;
-        }
+      if (groups[pos.icao] && ['TWR', 'APP', 'CTR', 'FSS'].includes(pos.positionType)) {
+        groups[pos.icao].hasHighCoverage = true;
       }
     });
 
@@ -336,28 +324,21 @@ export function LiveMap({ onAirportClick, vatsimEnabled, ivaoEnabled }: LiveMapP
       features: features as any
     });
 
-    // Coverage circles: one per ICAO with APP or DEP active
+    // Coverage circles for APP/DEP
     const seenCoverage = new Set<string>();
     const coverageFeatures: any[] = [];
-
     filteredPositions.forEach(pos => {
       if (!['APP', 'DEP'].includes(pos.positionType)) return;
       if (seenCoverage.has(pos.icao)) return;
       seenCoverage.add(pos.icao);
-
       const airport = airports[pos.icao];
       const lat = airport?.lat ?? pos.latitude;
       const lon = airport?.lon ?? pos.longitude;
       if (lat === undefined || lon === undefined) return;
-
-      const radiusNm = pos.visualRange ?? 50;
       coverageFeatures.push({
         type: 'Feature',
         properties: { icao: pos.icao },
-        geometry: {
-          type: 'Polygon',
-          coordinates: [createCircleCoords([lon, lat], radiusNm)],
-        },
+        geometry: { type: 'Polygon', coordinates: [createCircleCoords([lon, lat], pos.visualRange ?? 50)] },
       });
     });
 
@@ -367,18 +348,53 @@ export function LiveMap({ onAirportClick, vatsimEnabled, ivaoEnabled }: LiveMapP
         features: coverageFeatures,
       });
     }
+
+    // Pulse animation for newly detected airports
+    const currentIcaos = Object.keys(groups);
+    if (!isFirstLoadRef.current) {
+      const newIcaos = currentIcaos.filter(icao => !prevIcaosRef.current.has(icao));
+      if (newIcaos.length > 0 && map.current.getSource('new-arrivals')) {
+        const newFeatures = newIcaos
+          .map(icao => groups[icao])
+          .filter(Boolean)
+          .map(g => ({
+            type: 'Feature',
+            properties: {},
+            geometry: { type: 'Point', coordinates: [g.lon, g.lat] },
+          }));
+
+        const arrivalSource = map.current.getSource('new-arrivals') as maplibregl.GeoJSONSource;
+        arrivalSource.setData({ type: 'FeatureCollection', features: newFeatures as any });
+
+        cancelAnimationFrame(animFrameRef.current);
+        const startTime = performance.now();
+        const animate = (now: number) => {
+          if (!map.current) return;
+          const progress = Math.min((now - startTime) / 2000, 1);
+          map.current.setPaintProperty('new-arrivals-ring', 'circle-radius', 8 + progress * 40);
+          map.current.setPaintProperty('new-arrivals-ring', 'circle-opacity', 0.5 * (1 - progress));
+          if (progress < 1) {
+            animFrameRef.current = requestAnimationFrame(animate);
+          } else {
+            arrivalSource.setData({ type: 'FeatureCollection', features: [] });
+          }
+        };
+        animFrameRef.current = requestAnimationFrame(animate);
+      }
+    }
+    isFirstLoadRef.current = false;
+    prevIcaosRef.current = new Set(currentIcaos);
+
   }, [data, airports, vatsimEnabled, ivaoEnabled]);
 
   // Update historical airports source
   useEffect(() => {
     if (!map.current || !map.current.isStyleLoaded() || !map.current.getSource('historical-airports')) return;
-
     const features = historicalAirports.map(a => ({
       type: 'Feature',
       properties: { icao: a.icao },
       geometry: { type: 'Point', coordinates: [a.lon, a.lat] }
     }));
-
     (map.current.getSource('historical-airports') as maplibregl.GeoJSONSource).setData({
       type: 'FeatureCollection',
       features: features as any
