@@ -278,7 +278,7 @@ export function LiveMap({ onAirportClick, onCountUpdate, vatsimEnabled, ivaoEnab
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 15000);
+    const interval = setInterval(fetchData, 20000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
